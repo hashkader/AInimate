@@ -1,29 +1,45 @@
 /**
  * Minimal timeline: a play/pause transport, a scrubber across the frame range,
  * and diamond markers for each keyframe. Scrubbing samples the animation;
- * clicking a keyframe marker jumps exactly to it so it can be edited.
+ * clicking a keyframe marker jumps exactly to it so it can be edited. Landing
+ * the playhead exactly on a keyframe also reveals an ease-preset dropdown for
+ * the segment leaving it (hidden on the last keyframe, whose easeOut is never
+ * read).
  */
+
+import { EASE_PRESETS, frameRange, type EasePreset, type Keyframe } from '../rig/animation';
+
+const EASE_LABELS: Record<EasePreset, string> = {
+  linear: 'Linear',
+  easeIn: 'Ease In',
+  easeOut: 'Ease Out',
+  easeInOut: 'Ease In-Out',
+};
 
 interface TimelineProps {
   frame: number;
   endFrame: number;
   playing: boolean;
-  keyframeFrames: readonly number[];
+  keyframes: readonly Keyframe[];
   onScrub: (frame: number) => void;
   onTogglePlay: () => void;
   onSelectKeyframe: (frame: number) => void;
+  onChangeEase: (frame: number, easeOut: EasePreset) => void;
 }
 
 export function Timeline({
   frame,
   endFrame,
   playing,
-  keyframeFrames,
+  keyframes,
   onScrub,
   onTogglePlay,
   onSelectKeyframe,
+  onChangeEase,
 }: TimelineProps) {
-  const onKeyframe = keyframeFrames.some((f) => Math.round(frame) === f);
+  const selected = keyframes.find((k) => Math.round(frame) === k.frame);
+  const isLastKeyframe =
+    selected !== undefined && selected.frame === frameRange({ keyframes })?.end;
 
   return (
     <div className="timeline">
@@ -42,23 +58,40 @@ export function Timeline({
           aria-label="Scrub frame"
         />
         <div className="markers">
-          {keyframeFrames.map((f) => (
+          {keyframes.map((k) => (
             <button
-              key={f}
+              key={k.frame}
               className="keyframe-marker"
-              style={{ left: `${(f / endFrame) * 100}%` }}
-              title={`Keyframe at frame ${f}`}
-              aria-label={`Select keyframe at frame ${f}`}
-              onClick={() => onSelectKeyframe(f)}
+              style={{ left: `${(k.frame / endFrame) * 100}%` }}
+              title={`Keyframe at frame ${k.frame}`}
+              aria-label={`Select keyframe at frame ${k.frame}`}
+              onClick={() => onSelectKeyframe(k.frame)}
             />
           ))}
         </div>
       </div>
 
       <div className="frame-readout">
-        <span className={onKeyframe ? 'frame-num on-key' : 'frame-num'}>{Math.round(frame)}</span>
+        <span className={selected ? 'frame-num on-key' : 'frame-num'}>{Math.round(frame)}</span>
         <span className="frame-total">/ {endFrame}</span>
       </div>
+
+      {selected && !isLastKeyframe && (
+        <label className="ease-select">
+          Ease out
+          <select
+            aria-label={`Ease out for keyframe at frame ${selected.frame}`}
+            value={selected.easeOut}
+            onChange={(e) => onChangeEase(selected.frame, e.target.value as EasePreset)}
+          >
+            {EASE_PRESETS.map((preset) => (
+              <option key={preset} value={preset}>
+                {EASE_LABELS[preset]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }

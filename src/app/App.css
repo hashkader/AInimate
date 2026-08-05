@@ -145,6 +145,23 @@ body {
   font-weight: 700;
 }
 
+.ease-select {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted, #9aa4c2);
+}
+
+.ease-select select {
+  background: var(--panel-2);
+  color: inherit;
+  border: 1px solid var(--panel-2);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+
 .frame-num.on-key {
   color: #ffd166;
 }

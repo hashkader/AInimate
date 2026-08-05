@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RigView } from '../render/RigView';
 import { Timeline } from './Timeline';
 import { dragChainTo } from './poseEditing';
-import { sampleAnimation, type Animation } from '../rig/animation';
+import { sampleAnimation, type Animation, type EasePreset } from '../rig/animation';
 import { solveFK, type Pose } from '../rig/bone';
 import {
   characterSkeleton,
@@ -74,8 +74,6 @@ export function App() {
   const [activeChainId, setActiveChainId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const keyframeFrames = useMemo(() => animation.keyframes.map((k) => k.frame), [animation]);
-
   const pose = useMemo(() => sampleAnimation(animation, frame), [animation, frame]);
   const world = useMemo(() => solveFK(characterSkeleton, pose), [pose]);
 
@@ -133,6 +131,12 @@ export function App() {
 
   const endDrag = useCallback(() => setActiveChainId(null), []);
 
+  const changeEase = useCallback((frame: number, easeOut: EasePreset) => {
+    setAnimation((anim) => ({
+      keyframes: anim.keyframes.map((k) => (k.frame === frame ? { ...k, easeOut } : k)),
+    }));
+  }, []);
+
   const resetPose = useCallback(() => {
     setAnimation(initialAnimation);
     setFrame(0);
@@ -177,7 +181,7 @@ export function App() {
           frame={frame}
           endFrame={END_FRAME}
           playing={playing}
-          keyframeFrames={keyframeFrames}
+          keyframes={animation.keyframes}
           onScrub={(f) => {
             setPlaying(false);
             setFrame(f);
@@ -187,6 +191,7 @@ export function App() {
             setPlaying(false);
             setFrame(f);
           }}
+          onChangeEase={changeEase}
         />
         <button className="reset" onClick={resetPose}>
           Reset

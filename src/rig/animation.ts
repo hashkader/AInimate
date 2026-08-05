@@ -26,6 +26,9 @@ const easeFns: Record<EasePreset, (t: number) => number> = {
   easeInOut: (t) => 3 * t * t - 2 * t * t * t,
 };
 
+/** All ease presets, in a stable order — for populating UI pickers. */
+export const EASE_PRESETS: readonly EasePreset[] = ['linear', 'easeIn', 'easeOut', 'easeInOut'];
+
 /** Apply a named ease preset to a linear [0, 1] progress value. */
 export function applyEase(preset: EasePreset, t: number): number {
   return easeFns[preset](t);
