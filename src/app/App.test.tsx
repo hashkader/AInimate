@@ -13,7 +13,7 @@ describe('App', () => {
     expect(screen.getByTestId('ik-handle-legL')).toBeInTheDocument();
   });
 
-  it('reveals an ease-preset dropdown on selecting a non-last keyframe, and updates it', async () => {
+  it('enables the ease-preset dropdown on selecting a non-last keyframe, and updates it', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -21,18 +21,22 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /select keyframe at frame 0/i }));
 
     const select = screen.getByRole('combobox', { name: /ease out for keyframe at frame 0/i });
+    expect(select).toBeEnabled();
     expect(select).toHaveValue('linear');
 
     await user.selectOptions(select, 'easeInOut');
     expect(select).toHaveValue('easeInOut');
   });
 
-  it('hides the ease-preset dropdown for the last keyframe', async () => {
+  it('disables the ease-preset dropdown for the last keyframe (without unmounting it)', async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(screen.getByRole('button', { name: /select keyframe at frame 24/i }));
 
-    expect(screen.queryByRole('combobox', { name: /ease out/i })).not.toBeInTheDocument();
+    // Present but inert (visibility: hidden, so excluded from the a11y tree
+    // by default) — kept mounted so the timeline layout doesn't reflow (and
+    // the slider/markers jump) as scrubbing crosses keyframes.
+    expect(screen.getByRole('combobox', { hidden: true })).toBeDisabled();
   });
 });

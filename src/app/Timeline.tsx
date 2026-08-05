@@ -76,22 +76,27 @@ export function Timeline({
         <span className="frame-total">/ {endFrame}</span>
       </div>
 
-      {selected && !isLastKeyframe && (
-        <label className="ease-select">
-          Ease out
-          <select
-            aria-label={`Ease out for keyframe at frame ${selected.frame}`}
-            value={selected.easeOut}
-            onChange={(e) => onChangeEase(selected.frame, e.target.value as EasePreset)}
-          >
-            {EASE_PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
-                {EASE_LABELS[preset]}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <label
+        className="ease-select"
+        // Reserve this slot's width at all times, visible or not — otherwise
+        // the flex-1 scrubber reflows (and the slider/markers visibly jump)
+        // every time scrubbing crosses a keyframe and the picker toggles.
+        style={{ visibility: selected && !isLastKeyframe ? 'visible' : 'hidden' }}
+      >
+        Ease out
+        <select
+          aria-label={selected ? `Ease out for keyframe at frame ${selected.frame}` : 'Ease out'}
+          value={selected?.easeOut ?? 'linear'}
+          disabled={!selected || isLastKeyframe}
+          onChange={(e) => selected && onChangeEase(selected.frame, e.target.value as EasePreset)}
+        >
+          {EASE_PRESETS.map((preset) => (
+            <option key={preset} value={preset}>
+              {EASE_LABELS[preset]}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
