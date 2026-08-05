@@ -2,9 +2,9 @@
  * Keyframes + interpolation.
  *
  * An animation is a small set of keyframed poses on a frame timeline. Sampling
- * at an arbitrary frame blends the two surrounding keyframes. This first version
- * is linear interpolation (angles along the shortest arc, root position
- * component-wise) — no easing curves yet, by design.
+ * at an arbitrary frame blends the two surrounding keyframes (angles along the
+ * shortest arc, root position component-wise), remapped through the earlier
+ * keyframe's `easeOut` curve.
  *
  * Every value produced here is a plain Pose (bone angles + root position): the
  * timeline never bakes anything, it just evaluates parameters at a point in time.
@@ -13,9 +13,30 @@
 import { lerpAngle, lerpVec, clamp, type Vec2 } from './math';
 import type { Pose } from './bone';
 
+/**
+ * Named easing curves for the segment leaving a keyframe. Each is a pure,
+ * closed-form polynomial of `t` — no numerical cubic-bezier inversion.
+ */
+export type EasePreset = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+
+const easeFns: Record<EasePreset, (t: number) => number> = {
+  linear: (t) => t,
+  easeIn: (t) => t * t,
+  easeOut: (t) => 1 - (1 - t) * (1 - t),
+  easeInOut: (t) => 3 * t * t - 2 * t * t * t,
+};
+
+/** Apply a named ease preset to a linear [0, 1] progress value. */
+export function applyEase(preset: EasePreset, t: number): number {
+  return easeFns[preset](t);
+}
+
 export interface Keyframe {
   readonly frame: number;
   readonly pose: Pose;
+  /** The ease preset for the segment leaving this keyframe forward in time.
+   * Stored but never read on the last keyframe, since no segment follows it. */
+  readonly easeOut: EasePreset;
 }
 
 export interface Animation {
@@ -89,5 +110,5 @@ export function sampleAnimation(animation: Animation, frame: number): Pose {
 
   const span = next.frame - prev.frame;
   const t = span === 0 ? 0 : clamp((frame - prev.frame) / span, 0, 1);
-  return blendPoses(prev.pose, next.pose, t);
+  return blendPoses(prev.pose, next.pose, applyEase(prev.easeOut, t));
 }

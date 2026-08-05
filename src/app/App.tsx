@@ -41,15 +41,19 @@ const wavePose: Pose = dragChainTo(
 
 const initialAnimation: Animation = {
   keyframes: [
-    { frame: 0, pose: characterRestPose },
-    { frame: END_FRAME, pose: wavePose },
+    { frame: 0, pose: characterRestPose, easeOut: 'linear' },
+    { frame: END_FRAME, pose: wavePose, easeOut: 'linear' },
   ],
 };
 
-/** Insert or replace the keyframe at `frame`. */
+/** Insert or replace the keyframe at `frame`, preserving its easeOut if it already existed. */
 function upsertKeyframe(anim: Animation, frame: number, pose: Pose): Animation {
+  const existing = anim.keyframes.find((k) => k.frame === frame);
   const others = anim.keyframes.filter((k) => k.frame !== frame);
-  return { keyframes: [...others, { frame, pose }].sort((a, b) => a.frame - b.frame) };
+  const easeOut = existing?.easeOut ?? 'linear';
+  return {
+    keyframes: [...others, { frame, pose, easeOut }].sort((a, b) => a.frame - b.frame),
+  };
 }
 
 /** Convert a client pointer position into SVG user-space coordinates. */
