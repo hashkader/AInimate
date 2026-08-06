@@ -15,13 +15,14 @@ function mockFetchOnce(status: number, body: unknown) {
 describe('generateAnimation', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('POSTs the prompt and returns the animation on success', async () => {
+  it('POSTs the prompt and returns the animation, usage, and cost on success', async () => {
     const animation = { keyframes: [{ frame: 0, pose: { angles: {} }, easeOut: 'linear' }] };
-    mockFetchOnce(200, { animation });
+    const usage = { promptTokens: 500, completionTokens: 120, totalTokens: 620 };
+    mockFetchOnce(200, { animation, usage, costUsd: 0.00027 });
 
     const result = await generateAnimation('wave hello');
 
-    expect(result).toEqual(animation);
+    expect(result).toEqual({ animation, usage, costUsd: 0.00027 });
     expect(fetch).toHaveBeenCalledWith(
       '/api/generate',
       expect.objectContaining({

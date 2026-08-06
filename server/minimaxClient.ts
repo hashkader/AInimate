@@ -7,6 +7,8 @@
  * docs/adr/0002-llm-authored-keyframes-minimax.md.
  */
 
+import type { TokenUsage } from './pricing';
+
 const MINIMAX_BASE_URL = 'https://api.minimax.io/v1';
 const TOOL_NAME = 'set_keyframes';
 
@@ -15,22 +17,28 @@ export interface MinimaxConfig {
   readonly model: string;
 }
 
+export interface MinimaxResult {
+  readonly data: unknown;
+  readonly usage: TokenUsage;
+}
+
 export class MinimaxRequestError extends Error {}
 
 /**
  * Ask MiniMax to produce keyframes matching `schema` for `prompt`, forcing
  * the single tool call named `set_keyframes`. Returns the tool call's
- * arguments, JSON-parsed but otherwise unvalidated — callers must validate.
- * `systemPrompt` is assembled by the caller (see generateHandler.ts), which
- * owns the rig-specific context (skeleton structure, rest pose) this module
- * has no business knowing about.
+ * arguments (JSON-parsed but otherwise unvalidated — callers must validate)
+ * alongside the token usage MiniMax reports for the call, so cost can be
+ * estimated. `systemPrompt` is assembled by the caller (see
+ * generateHandler.ts), which owns the rig-specific context (skeleton
+ * structure, rest pose) this module has no business knowing about.
  */
 export async function generateKeyframesViaMinimax(
   prompt: string,
   systemPrompt: string,
   schema: object,
   config: MinimaxConfig
-): Promise<unknown> {
+): Promise<MinimaxResult> {
   const response = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -64,14 +72,20 @@ export async function generateKeyframesViaMinimax(
 
   const data = (await response.json()) as {
     choices?: { message?: { tool_calls?: { function?: { arguments?: string } }[] } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (typeof args !== 'string') {
     throw new MinimaxRequestError('MiniMax response did not include a set_keyframes tool call.');
   }
 
+  const usage: TokenUsage = {
+    promptTokens: data.usage?.prompt_tokens ?? 0,
+    completionTokens: data.usage?.completion_tokens ?? 0,
+  };
+
   try {
-    return JSON.parse(args) as unknown;
+    return { data: JSON.parse(args) as unknown, usage };
   } catch {
     throw new MinimaxRequestError('MiniMax tool call arguments were not valid JSON.');
   }

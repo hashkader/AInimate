@@ -10,12 +10,26 @@ import type { Animation } from '../rig/animation';
 
 export class GenerateRequestError extends Error {}
 
+export interface TokenUsage {
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+  readonly totalTokens: number;
+}
+
+export interface GenerateResult {
+  readonly animation: Animation;
+  readonly usage: TokenUsage;
+  readonly costUsd: number;
+}
+
 interface GenerateResponseBody {
   readonly animation?: unknown;
+  readonly usage?: TokenUsage;
+  readonly costUsd?: number;
   readonly error?: string;
 }
 
-export async function generateAnimation(prompt: string): Promise<Animation> {
+export async function generateAnimation(prompt: string): Promise<GenerateResult> {
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -28,8 +42,8 @@ export async function generateAnimation(prompt: string): Promise<Animation> {
     const message = body?.error ?? `Generate failed (${response.status}).`;
     throw new GenerateRequestError(message);
   }
-  if (!body?.animation) {
+  if (!body?.animation || !body.usage || typeof body.costUsd !== 'number') {
     throw new GenerateRequestError('Generate response was missing an animation.');
   }
-  return body.animation as Animation;
+  return { animation: body.animation as Animation, usage: body.usage, costUsd: body.costUsd };
 }

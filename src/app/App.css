@@ -106,6 +106,13 @@ body {
   color: var(--accent);
 }
 
+.generate-success {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6fcf97;
+}
+
 .stage {
   background: radial-gradient(circle at 50% 35%, #1c2740, #0c111c 70%);
   border: 1px solid var(--panel-2);

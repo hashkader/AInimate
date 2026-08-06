@@ -22,6 +22,7 @@ import {
   MinimaxRequestError,
   type MinimaxConfig,
 } from './minimaxClient';
+import { estimateCostUsd, type TokenPricing } from './pricing';
 
 const MAX_PROMPT_LENGTH = 500;
 
@@ -33,7 +34,7 @@ ${describeSkeletonForPrompt(characterSkeleton, characterRestPose)}
 
 Bones you don't mention in a keyframe hold their rest-pose angle above — you only need to specify bones that move.`;
 
-export function createGenerateHandler(config: MinimaxConfig) {
+export function createGenerateHandler(config: MinimaxConfig, pricing: TokenPricing) {
   return async function generateHandler(req: Request, res: Response): Promise<void> {
     const prompt = req.body?.prompt;
     if (typeof prompt !== 'string' || prompt.trim().length === 0) {
@@ -48,8 +49,11 @@ export function createGenerateHandler(config: MinimaxConfig) {
     const schema = keyframesToolSchema(characterSkeleton);
 
     let raw: unknown;
+    let usage: { promptTokens: number; completionTokens: number };
     try {
-      raw = await generateKeyframesViaMinimax(prompt, SYSTEM_PROMPT, schema, config);
+      const result = await generateKeyframesViaMinimax(prompt, SYSTEM_PROMPT, schema, config);
+      raw = result.data;
+      usage = result.usage;
     } catch (err) {
       const message = err instanceof MinimaxRequestError ? err.message : 'MiniMax request failed.';
       res.status(502).json({ error: message });
@@ -58,7 +62,15 @@ export function createGenerateHandler(config: MinimaxConfig) {
 
     try {
       const animation = validateGeneratedAnimation(raw, characterSkeleton, characterRestPose);
-      res.status(200).json({ animation });
+      res.status(200).json({
+        animation,
+        usage: {
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.promptTokens + usage.completionTokens,
+        },
+        costUsd: estimateCostUsd(usage, pricing),
+      });
     } catch (err) {
       const message =
         err instanceof GenerationValidationError ? err.message : 'Generated animation was invalid.';
