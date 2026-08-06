@@ -12,8 +12,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RigView } from '../render/RigView';
 import { Timeline } from './Timeline';
+import { GeneratePanel } from './GeneratePanel';
 import { dragChainTo } from './poseEditing';
-import { sampleAnimation, type Animation, type EasePreset } from '../rig/animation';
+import { generateAnimation } from './generateClient';
+import { frameRange, sampleAnimation, type Animation, type EasePreset } from '../rig/animation';
 import { solveFK, type Pose } from '../rig/bone';
 import {
   characterSkeleton,
@@ -76,6 +78,9 @@ export function App() {
 
   const pose = useMemo(() => sampleAnimation(animation, frame), [animation, frame]);
   const world = useMemo(() => solveFK(characterSkeleton, pose), [pose]);
+  // A Generated animation's duration is the LLM's choice (capped server-side),
+  // not the fixed walking-skeleton default — see docs/adr/0002.
+  const endFrame = useMemo(() => frameRange(animation)?.end ?? END_FRAME, [animation]);
 
   // Playback loop.
   useEffect(() => {
@@ -87,13 +92,13 @@ export function App() {
       last = now;
       setFrame((f) => {
         const next = f + dt * FPS;
-        return next >= END_FRAME ? next - END_FRAME : next;
+        return next >= endFrame ? next - endFrame : next;
       });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing]);
+  }, [playing, endFrame]);
 
   const applyDrag = useCallback(
     (chainId: string, clientX: number, clientY: number) => {
@@ -143,6 +148,12 @@ export function App() {
     setPlaying(false);
   }, []);
 
+  const applyGenerated = useCallback((generated: Animation) => {
+    setAnimation(generated);
+    setFrame(0);
+    setPlaying(false);
+  }, []);
+
   return (
     <div className="app">
       <header className="app-header">
@@ -151,8 +162,10 @@ export function App() {
         </h1>
         <p className="subtitle">
           Drag a hand or foot handle — IK solves the limb into editable bone angles. Set a pose on
-          frame 0 and frame {END_FRAME}, then scrub or play to watch it interpolate.
+          frame 0 and frame {END_FRAME}, then scrub or play to watch it interpolate. Or describe a
+          motion below and let AI draft the keyframes — then tweak them the same way.
         </p>
+        <GeneratePanel onGenerate={generateAnimation} onApply={applyGenerated} />
       </header>
 
       <div className="stage">
@@ -179,7 +192,7 @@ export function App() {
       <div className="controls">
         <Timeline
           frame={frame}
-          endFrame={END_FRAME}
+          endFrame={endFrame}
           playing={playing}
           keyframes={animation.keyframes}
           onScrub={(f) => {

@@ -58,6 +58,54 @@ body {
   line-height: 1.5;
 }
 
+.generate-panel {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.generate-panel input[type='text'] {
+  flex: 1;
+  min-width: 220px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-2);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.generate-panel button {
+  flex: none;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #1a0f0f;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.generate-panel button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.generate-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
 .stage {
   background: radial-gradient(circle at 50% 35%, #1c2740, #0c111c 70%);
   border: 1px solid var(--panel-2);

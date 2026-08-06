@@ -13,3 +13,4 @@ export * from './bone';
 export * from './ik';
 export * from './animation';
 export * from './character';
+export * from './generation';

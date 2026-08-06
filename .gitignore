@@ -14,6 +14,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# direnv (contains a GH_TOKEN secret — never commit)
+.envrc
+
+# server secrets (MINIMAX_API_KEY) — never commit
+.env
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

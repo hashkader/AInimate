@@ -61,12 +61,39 @@ This section is **living** — update it as work progresses.
       interpolation between them.
 - [x] SVG canvas/renderer with draggable IK handles.
 
+**Phase 2 first slice — DONE.** Scope confirmed via a grilling session; see
+[`docs/adr/0002-llm-authored-keyframes-minimax.md`](docs/adr/0002-llm-authored-keyframes-minimax.md)
+and the `Generate` entry in [`CONTEXT.md`](CONTEXT.md) for the full rationale.
+
+- [x] A minimal standalone Express server (`server/`) holding the MiniMax API
+      key, run as a second process alongside Vite in dev. No database.
+- [x] A single free-text motion prompt → one generated `Animation`, via a
+      strict-schema MiniMax tool call that returns `Keyframe[]` in our own
+      `Pose` schema (no third-party text-to-motion API, no retargeting).
+- [x] Generation always starts from the rig's rest pose and replaces the
+      current `Animation` wholesale, applied immediately — no preview/confirm
+      step.
+- [x] Strict validation of LLM output against `characterSkeleton`; reject with
+      an explicit error and leave the prior animation untouched on any
+      failure — no best-effort repair.
+- [x] Tweaking a generated animation reuses the existing manual controls (IK
+      drag, timeline scrub, keyframe edit) — this is the HITL step.
+
 **Deferred — do NOT build without checking in first, even if it looks easy:**
 
-- [ ] Any AI integration of any kind.
-- [ ] Backend, database, auth (local/in-memory only for now).
+- [ ] Script → shot breakdown (multi-line script parsing into a shot list).
+- [ ] Natural-language tweak assistant (parameter deltas against the current
+      state, as opposed to a fresh Generate).
+- [ ] Licensed text-to-motion / motion-capture API and any retargeting onto
+      our rig.
 - [ ] Real character artwork, character import, auto-rigging.
-- [ ] Easing / curve-editor UI (linear interpolation is the current baseline).
+- [ ] Per-bone joint/angle limits.
+- [ ] Provenance tracking (marking generated vs. hand-edited keyframes).
+- [ ] Multi-provider / user-supplied API key selection (the generation call
+      should stay behind a small seam so this isn't a rewrite later, but it's
+      not built now — MiniMax only for this slice).
+- [ ] Persistence, multi-clip management, undo/redo.
+- [ ] Easing / curve-editor UI beyond the fixed preset picker (already done).
 - [ ] Multiple characters, scenes, cameras, backgrounds.
 - [ ] Mobile support.
 - [ ] Any 3D code path.
@@ -100,6 +127,11 @@ This section is **living** — update it as work progresses.
 - **Walking skeleton** — the smallest end-to-end working slice that proves the
   concept (rig + IK + timeline) before a full editor is built. That is what this
   repo currently is.
+- **Generate** — the Phase 2 action: a free-text motion prompt in, an LLM-authored
+  `Animation` out (same `Keyframe[]` type Phase 1 already has — no new type,
+  no baked output). Always drafted fresh from the rig's rest pose and applied
+  immediately, replacing whatever animation was there. See `CONTEXT.md` and
+  `docs/adr/0002-llm-authored-keyframes-minimax.md`.
 
 ## Tech stack & key decisions
 
@@ -126,6 +158,7 @@ src/
     ik.ts         #   analytic two-bone inverse kinematics
     animation.ts  #   keyframes + linear interpolation (sampleAnimation)
     character.ts  #   the hand-authored test puppet (skeleton, rest pose, chains)
+    generation.ts #   strict validation of LLM-generated Keyframe[] (Phase 2 Generate)
     index.ts      #   barrel export
     *.test.ts     #   TDD lives here
   render/         # SVG presentation only
@@ -134,18 +167,28 @@ src/
     App.tsx       #   canvas, drag→IK→keyframe wiring, playback
     Timeline.tsx  #   transport + scrubber + keyframe markers
     poseEditing.ts#   drag gesture → two-bone IK → pose parameters (the bridge)
+    GeneratePanel.tsx  # prompt input + Generate button, owns loading/error state
+    generateClient.ts  # fetch wrapper for POST /api/generate
   main.tsx        # React entry
+server/           # Minimal Express server — holds the MiniMax API key server-side
+  index.ts        #   app entry, reads env, mounts POST /api/generate
+  generateHandler.ts  # orchestrates: call MiniMax, validate via src/rig/generation.ts
+  minimaxClient.ts    # thin fetch wrapper around MiniMax's tool-calling API
 docs/spec.md      # full product context
 ```
 
 The `rig → render → app` dependency direction is one-way: `rig` depends on
-nothing internal; `app` may use both. Keep it that way.
+nothing internal; `app` may use both. `server/` may import `src/rig` (it's
+Node, not UI/DOM, so the rig boundary's restriction doesn't apply to it) but
+nothing in `src/` may import from `server/`.
 
 ## How to run
 
 ```bash
 npm install       # install dependencies
+cp .env.example .env  # then fill in MINIMAX_API_KEY (see .env.example)
 npm run dev       # start the Vite dev server (http://localhost:5173)
+npm run server    # in a second terminal: the Express server behind Generate (:3001)
 npm test          # run the full test suite once (Vitest)
 npm run test:watch
 npm run typecheck # tsc -b (project references; real type check)
@@ -153,6 +196,10 @@ npm run lint      # eslint
 npm run format    # prettier --write
 npm run build     # tsc -b && vite build
 ```
+
+The Generate feature (text prompt → AI-drafted keyframes) needs both `npm run
+dev` and `npm run server` running; everything else in the app works with just
+`npm run dev`.
 
 ## Working agreements for future sessions
 
@@ -168,3 +215,19 @@ npm run build     # tsc -b && vite build
   list, check in before starting — even if it seems small.
 - **This is a living document.** Update "Current scope" and any decisions here
   whenever a major choice is made or a milestone completes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in this repo's GitHub Issues (uses the `gh` CLI). See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
